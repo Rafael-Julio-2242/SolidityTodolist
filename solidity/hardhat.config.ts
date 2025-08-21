@@ -2,6 +2,8 @@ import type { HardhatUserConfig } from "hardhat/config";
 
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable } from "hardhat/config";
+import dotenv from 'dotenv';
+dotenv.config();
 
 const config: HardhatUserConfig = {
   plugins: [hardhatToolboxViemPlugin],
@@ -29,6 +31,12 @@ const config: HardhatUserConfig = {
     hardhatOp: {
       type: "edr-simulated",
       chainType: "op",
+    },
+    hardhat: {
+      type: "http",
+      chainType: "l1",
+      url: configVariable('HARDHAT_RPC_URL'),
+      accounts: [configVariable('HARDHAT_PRIVATE_KEY')]
     },
     sepolia: {
       type: "http",
