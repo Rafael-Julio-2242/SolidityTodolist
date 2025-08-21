@@ -9,9 +9,15 @@ import { Input } from "@/components/ui/input";
 import { GetSigner } from "@/helpers/getSigner";
 import { GetContractInfo } from "@/serverActions/getContractInfo";
 import { ethers } from "ethers";
-import Swall from 'sweetalert2';
+import Swall from "sweetalert2";
 
-export default function TodoItem({ task, updateTasks }: { task: Task, updateTasks: () => void }) {
+export default function TodoItem({
+  task,
+  updateTasks,
+}: {
+  task: Task;
+  updateTasks: () => void;
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTodoName, setEditTodoName] = useState(task.name);
 
@@ -22,77 +28,114 @@ export default function TodoItem({ task, updateTasks }: { task: Task, updateTask
   };
 
   const handleEditTodo = async () => {
-   const signer = await GetSigner();
+    const signer = await GetSigner();
 
-   if (!signer) return;
+    if (!signer) return;
+
+    try {
+      setIsUpdating(true);
+
+      const { abi, address } = await GetContractInfo();
+
+      const contract = new ethers.Contract(address, abi, signer);
+
+      const tx = await contract.updateTask(task.id, editTodoName);
+
+      await tx.wait();
+
+      setIsEditing(false);
+      updateTasks();
+    } catch (e: any) {
+      console.log("[ERROR ON EDIT TODO]: ", e);
+      alert("Erro ao editar tarefa!");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const completeTask = async () => {
+    setIsUpdating(true);
+
+    const result = await Swall.fire({
+      title: "Do you want to complete this task?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Complete",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) {
+      setIsUpdating(false);
+      return;
+    }
+
+    try {
+      const signer = await GetSigner();
+
+      if (!signer) {
+        alert("Please, connect your wallet to complete a todo!");
+        setIsUpdating(false);
+        return;
+      }
+
+      const { abi, address } = await GetContractInfo();
+
+      const contract = new ethers.Contract(address, abi, signer);
+
+      const tx = await contract.completeTask(task.id);
+
+      await tx.wait();
+
+      updateTasks();
+      setIsUpdating(false);
+    } catch (e: any) {
+      console.log("Erro ao completar tarefa: ", e);
+      setIsUpdating(false);
+    }
+  };
+
+  const deleteTask = async () => {
+   setIsUpdating(true);
+
+   const result = await Swall.fire({
+    title: "Do you want to delete this task?",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Delete",
+    cancelButtonText: "Cancel",
+   });
+
+   if (!result.isConfirmed) {
+    setIsUpdating(false);
+    return;
+   }
 
    try {
-    setIsUpdating(true);
+    const signer = await GetSigner();
+
+    if (!signer) {
+     alert("Please, connect your wallet to delete a todo!");
+     setIsUpdating(false);
+     return;
+    }
 
     const { abi, address } = await GetContractInfo();
 
     const contract = new ethers.Contract(address, abi, signer);
 
-    const tx = await contract.updateTask(task.id, editTodoName);
+    const tx = await contract.deleteTask(task.id);
 
-    const receipt = await tx.wait();
+    await tx.wait();
 
-    console.log("Transação confirmada: ", receipt);
-
-    setIsEditing(false);
     updateTasks();
-
+    setIsUpdating(false);
    } catch (e: any) {
-    console.log("[ERROR ON EDIT TODO]: ", e);
-    alert("Erro ao editar tarefa!")
-   } finally {
+    console.log("Erro ao deletar tarefa: ", e);
     setIsUpdating(false);
    }
 
+
   }
-
-  const completeTask = async () => {
-
-   setIsUpdating(true);
-   
-   const result = await Swall.fire({
-     title: "Do you want to complete this task?",
-     icon: "question",
-     showCancelButton: true,
-     confirmButtonText: "Complete",
-     cancelButtonText: "Cancel"
-   });
-
-   if (!result.isConfirmed) {
-     setIsUpdating(false);
-     return;
-   }
-   
-   try {
-     const signer = await GetSigner();
-
-     if (!signer) {
-      alert("Please, connect your wallet to complete a todo!")
-      setIsUpdating(false);
-      return;
-     }
-
-     const { abi, address } = await GetContractInfo();
-
-     const contract = new ethers.Contract(address, abi, signer);
-
-     const tx = await contract.completeTask(task.id);
-
-     const receipt = await tx.wait();
-
-     console.log("Transação confirmada: ", receipt);
-
-     updateTasks();
-   } catch (e: any) {
-     console.log("Erro ao completar tarefa: ", e);
-     setIsUpdating(false);
-   }
- }
 
   return (
     <div
@@ -121,7 +164,7 @@ export default function TodoItem({ task, updateTasks }: { task: Task, updateTask
         <RippleButton onClick={editTodo} disabled={isUpdating}>
           {isEditing ? <X /> : <Edit />}
         </RippleButton>
-        <RippleButton disabled={isUpdating}>
+        <RippleButton disabled={isUpdating} onClick={deleteTask}>
           <Trash2 />
         </RippleButton>
         {!isEditing && (
