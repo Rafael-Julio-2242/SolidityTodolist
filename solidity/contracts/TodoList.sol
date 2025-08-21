@@ -53,4 +53,8 @@ contract Todolist {
   return tasksIds;
  }
 
+ function completeTask(uint256 _id) public {
+  tasks[_id].isCompleted = true;
+ }
+
 }
